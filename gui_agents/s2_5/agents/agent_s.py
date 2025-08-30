@@ -55,20 +55,26 @@ class AgentS2_5(UIAgent):
         platform: str = platform.system().lower(),
         max_trajectory_length: int = 8,
         enable_reflection: bool = True,
+        generator_engine_params: Dict = None,
+        reflection_engine_params: Dict = None,
     ):
         """Initialize a minimalist AgentS2 without hierarchy
 
         Args:
-            engine_params: Configuration parameters for the LLM engine
+            engine_params: Configuration parameters for the LLM engine (fallback)
             grounding_agent: Instance of ACI class for UI interaction
             platform: Operating system platform (darwin, linux, windows)
             max_trajectory_length: Maximum number of image turns to keep
             enable_reflection: Creates a reflection agent to assist the worker agent
+            generator_engine_params: Specific parameters for the generator agent
+            reflection_engine_params: Specific parameters for the reflection agent
         """
 
         super().__init__(engine_params, grounding_agent, platform)
         self.max_trajectory_length = max_trajectory_length
         self.enable_reflection = enable_reflection
+        self.generator_engine_params = generator_engine_params
+        self.reflection_engine_params = reflection_engine_params
         self.reset()
 
     def reset(self) -> None:
@@ -79,6 +85,8 @@ class AgentS2_5(UIAgent):
             platform=self.platform,
             max_trajectory_length=self.max_trajectory_length,
             enable_reflection=self.enable_reflection,
+            generator_engine_params=self.generator_engine_params,
+            reflection_engine_params=self.reflection_engine_params,
         )
 
     def predict(self, instruction: str, observation: Dict) -> Tuple[Dict, List[str]]:

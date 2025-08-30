@@ -11,11 +11,215 @@ from openai import (
     RateLimitError,
 )
 import requests
-
+from together import Together
+from groq import Groq
 
 class LMMEngine:
     pass
 
+
+class LMMEngineFriendli(LMMEngine):
+    def __init__(self, base_url=None, api_key=None, model=None, rate_limit=-1, **kwargs):
+        assert model is not None, "model must be provided"
+        self.model = model
+
+        api_key = api_key or os.getenv("FRIENDLI_TOKEN")
+        if api_key is None:
+            raise ValueError(
+                "A Friendli token needs to be provided in either the api_key parameter or as an environment variable named FRIENDLI_TOKEN"
+            )
+
+        self.base_url = base_url or "https://api.friendli.ai/dedicated/v1"
+        self.api_key = api_key
+        self.request_interval = 0 if rate_limit == -1 else 60.0 / rate_limit
+
+        self.llm_client = OpenAI(base_url=self.base_url, api_key=self.api_key)
+
+    @backoff.on_exception(
+        backoff.expo, (APIConnectionError, APIError, RateLimitError), max_time=60
+    )
+    def generate(self, messages, temperature=0.0, max_new_tokens=None, **kwargs):
+        """Generate the next message based on previous messages"""
+        import logging
+        logger = logging.getLogger("desktopenv.agent")
+        
+        try:
+            response = self.llm_client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                max_tokens=max_new_tokens if max_new_tokens else 4096,
+                temperature=temperature,
+                **kwargs,
+            )
+            
+            content = response.choices[0].message.content
+            
+            # Only log if there's an issue
+            if not content or content.strip() == "":
+                logger.error(f"Empty response from Friendli model {self.model}")
+                
+            return content
+            
+        except Exception as e:
+            logger.error(f"Friendli API call failed: {type(e).__name__}: {str(e)}")
+            raise
+
+
+class LMMEngineHyperbolic(LMMEngine):
+    def __init__(self, base_url=None, api_key=None, model=None, rate_limit=-1, **kwargs):
+        assert model is not None, "model must be provided"
+        self.model = model
+        
+        api_key = api_key or os.getenv("HYPERBOLIC_API_KEY")
+        if api_key is None:
+            raise ValueError(
+                "A Hyperbolic API key needs to be provided in either the api_key parameter or as an environment variable named HYPERBOLIC_API_KEY"
+            )
+
+        self.api_key = api_key
+        self.base_url = base_url or "https://api.hyperbolic.xyz/v1/chat/completions"
+        self.request_interval = 0 if rate_limit == -1 else 60.0 / rate_limit
+        
+        self.headers = {
+            'Authorization': f'Bearer {self.api_key}',
+            'Content-Type': 'application/json',
+        }
+
+    @backoff.on_exception(
+        backoff.expo, (requests.exceptions.RequestException,), max_time=60
+    )
+    def generate(self, messages, temperature=0.0, max_new_tokens=None, **kwargs):
+        """Generate the next message based on previous messages"""
+        
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_new_tokens if max_new_tokens else 4096,
+            **kwargs
+        }
+
+        try:
+            print(f"🔍 Making Hyperbolic request to: {self.base_url}")
+            print(f"🔍 Model: {self.model}")
+            print(f"🔍 Message count: {len(messages)}")
+            
+            response = requests.post(self.base_url, headers=self.headers, json=payload, timeout=60)
+            
+            print(f"🔍 Response status code: {response.status_code}")
+            
+            response.raise_for_status()
+            
+            response_data = response.json()
+            print(f"🔍 Response keys: {list(response_data.keys())}")
+            
+            if 'choices' not in response_data or not response_data['choices']:
+                print(f"❌ Error: No choices in response: {response_data}")
+                raise ValueError(f"No choices in Hyperbolic response: {response_data}")
+            
+            content = response_data['choices'][0]['message']['content']
+            print(f"🔍 Content length: {len(content) if content else 0}")
+            print(f"🔍 Content preview: {content[:200] if content else 'EMPTY'}")
+            
+            if not content:
+                print(f"❌ Warning: Empty content from Hyperbolic. Full response: {response_data}")
+                raise ValueError("Empty content from Hyperbolic API")
+                
+            return content
+            
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Hyperbolic API request failed: {e}")
+            if hasattr(e, 'response') and e.response is not None:
+                print(f"❌ Error response status: {e.response.status_code}")
+                print(f"❌ Error response text: {e.response.text}")
+            raise
+        except (KeyError, IndexError) as e:
+            print(f"❌ Hyperbolic response parsing failed: {e}")
+            print(f"❌ Response data: {response_data if 'response_data' in locals() else 'No response data'}")
+            raise
+        except json.JSONDecodeError as e:
+            print(f"❌ Failed to parse JSON response: {e}")
+            print(f"❌ Raw response text: {response.text}")
+            raise
+
+class LMMEngineGroq(LMMEngine):
+    def __init__(self, base_url=None, api_key=None, model=None, rate_limit=-1, **kwargs):
+        assert model is not None, "model must be provided"
+        self.model = model
+        self.base_url = base_url
+        
+        api_key = api_key or os.getenv("GROQ_API_KEY")
+        if api_key is None:
+            raise ValueError(
+                "A Groq token needs to be provided in either the api_key parameter or as an environment variable named GROQ_API_KEY"
+            )
+
+        self.api_key = api_key
+        self.request_interval = 0 if rate_limit == -1 else 60.0 / rate_limit
+
+        self.llm_client = Groq(api_key=self.api_key)
+
+    @backoff.on_exception(
+        backoff.expo, (APIConnectionError, APIError, RateLimitError), max_time=60
+    )
+    def generate(self, messages, temperature=0.0, max_new_tokens=None, **kwargs):
+        """Generate the next message based on previous messages"""
+        return (
+            self.llm_client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                max_tokens=max_new_tokens if max_new_tokens else 4096,
+                temperature=temperature,
+                **kwargs,
+            )
+            .choices[0]
+            .message.content
+        )
+         
+class LMMEngineTogether(LMMEngine):
+    def __init__(self, base_url=None, api_key=None, model=None, rate_limit=-1, **kwargs):
+        assert model is not None, "model must be provided"
+        self.model = model
+        
+        api_key = api_key or os.getenv("TOGETHER_API_KEY")
+        if api_key is None:
+            raise ValueError(
+                "A Together token needs to be provided in either the api_key parameter or as an environment variable named TOGETHER_API_KEY"
+            )
+
+        self.api_key = api_key
+        self.request_interval = 0 if rate_limit == -1 else 60.0 / rate_limit
+
+        self.llm_client = Together(api_key=self.api_key)
+
+    @backoff.on_exception(
+        backoff.expo, (APIConnectionError, APIError, RateLimitError), max_time=60
+    )
+    def generate(self, messages, temperature=0.0, max_new_tokens=None, **kwargs):
+        """Generate the next message based on previous messages"""
+        import logging
+        logger = logging.getLogger("desktopenv.agent")
+        
+        try:
+            response = self.llm_client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                max_tokens=max_new_tokens if max_new_tokens else 4096,
+                temperature=temperature,
+                **kwargs,
+            )
+            
+            content = response.choices[0].message.content
+            
+            # Only log if there's an issue
+            if not content or content.strip() == "":
+                logger.error(f"Empty response from {self.model}")
+                
+            return content
+            
+        except Exception as e:
+            logger.error(f"API call failed: {type(e).__name__}: {str(e)}")
+            raise
 
 class LMMEngineOpenAI(LMMEngine):
     def __init__(

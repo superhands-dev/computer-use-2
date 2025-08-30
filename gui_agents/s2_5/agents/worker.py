@@ -24,12 +24,14 @@ class Worker(BaseModule):
         platform: str = "ubuntu",
         max_trajectory_length: int = 8,
         enable_reflection: bool = True,
+        generator_engine_params: Dict = None,
+        reflection_engine_params: Dict = None,
     ):
         """
         Worker receives the main task and generates actions, without the need of hierarchical planning
         Args:
             engine_params: Dict
-                Parameters for the multimodal engine
+                Default parameters for the multimodal engine (fallback)
             grounding_agent: Agent
                 The grounding agent to use
             platform: str
@@ -38,12 +40,21 @@ class Worker(BaseModule):
                 The amount of images turns to keep
             enable_reflection: bool
                 Whether to enable reflection
+            generator_engine_params: Dict
+                Specific parameters for the generator agent (main action planning)
+            reflection_engine_params: Dict
+                Specific parameters for the reflection agent
         """
         super().__init__(engine_params, platform)
 
         self.grounding_agent = grounding_agent
         self.max_trajectory_length = max_trajectory_length
         self.enable_reflection = enable_reflection
+        
+        # Use specific engine params or fall back to default
+        self.generator_engine_params = generator_engine_params or engine_params
+        self.reflection_engine_params = reflection_engine_params or engine_params
+        
         self.temperature = engine_params.get("temperature", 0.0)
         self.use_thinking = engine_params.get("model", "") in [
             "claude-3-7-sonnet-20250219"
@@ -60,9 +71,15 @@ class Worker(BaseModule):
             type(self.grounding_agent), skipped_actions=skipped_actions
         ).replace("CURRENT_OS", self.platform)
 
-        self.generator_agent = self._create_agent(sys_prompt)
+        # Create generator agent with specific engine params
+        self.generator_agent = self._create_agent(
+            sys_prompt, engine_params=self.generator_engine_params
+        )
+        
+        # Create reflection agent with specific engine params
         self.reflection_agent = self._create_agent(
-            PROCEDURAL_MEMORY.REFLECTION_ON_TRAJECTORY
+            PROCEDURAL_MEMORY.REFLECTION_ON_TRAJECTORY,
+            engine_params=self.reflection_engine_params
         )
 
         self.turn_count = 0

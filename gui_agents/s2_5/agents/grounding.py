@@ -164,6 +164,8 @@ class OSWorldACI(ACI):
         engine_params_for_grounding: Dict,
         width: int = 1920,
         height: int = 1080,
+        visual_grounding_engine_params: Dict = None,
+        text_grounding_engine_params: Dict = None,
     ):
         self.platform = (
             platform  # Dictates how the switch_applications agent action works.
@@ -180,13 +182,17 @@ class OSWorldACI(ACI):
         self.coords1 = None
         self.coords2 = None
 
+        # Use specific engine params or fall back to defaults
+        visual_params = visual_grounding_engine_params or engine_params_for_grounding
+        text_params = text_grounding_engine_params or engine_params_for_generation
+
         # Configure the visual grounding model responsible for coordinate generation
-        self.grounding_model = LMMAgent(engine_params_for_grounding)
-        self.engine_params_for_grounding = engine_params_for_grounding
+        self.grounding_model = LMMAgent(visual_params)
+        self.engine_params_for_grounding = visual_params
 
         # Configure text grounding agent
         self.text_span_agent = LMMAgent(
-            engine_params=engine_params_for_generation,
+            engine_params=text_params,
             system_prompt=PROCEDURAL_MEMORY.PHRASE_TO_WORD_COORDS_PROMPT,
         )
 

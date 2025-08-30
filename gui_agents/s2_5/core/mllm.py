@@ -11,6 +11,10 @@ from gui_agents.s2_5.core.engine import (
     LMMEngineParasail,
     LMMEnginevLLM,
     LMMEngineGemini,
+    LMMEngineGroq,
+    LMMEngineTogether,
+    LMMEngineHyperbolic,
+    LMMEngineFriendli,
 )
 
 
@@ -19,7 +23,15 @@ class LMMAgent:
         if engine is None:
             if engine_params is not None:
                 engine_type = engine_params.get("engine_type")
-                if engine_type == "openai":
+                if engine_type == "groq":
+                    self.engine = LMMEngineGroq(**engine_params)
+                elif engine_type == "together":
+                    self.engine = LMMEngineTogether(**engine_params)
+                elif engine_type == "hyperbolic":
+                    self.engine = LMMEngineHyperbolic(**engine_params)
+                elif engine_type == "friendli":
+                    self.engine = LMMEngineFriendli(**engine_params)
+                elif engine_type == "openai":
                     self.engine = LMMEngineOpenAI(**engine_params)
                 elif engine_type == "anthropic":
                     self.engine = LMMEngineAnthropic(**engine_params)
@@ -129,6 +141,10 @@ class LMMAgent:
                 LMMEngineGemini,
                 LMMEngineOpenRouter,
                 LMMEngineParasail,
+                LMMEngineGroq,
+                LMMEngineTogether,
+                LMMEngineHyperbolic,
+                LMMEngineFriendli,
             ),
         ):
             # infer role from previous message
