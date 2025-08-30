@@ -6,8 +6,8 @@ setup(
     description="A library for creating general purpose GUI agents using multimodal LLMs.",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
-    author="Simular AI",
-    author_email="eric@simular.ai",
+    author="Superhands",
+    author_email="superhands.dev",
     packages=find_packages(),
     install_requires=[
         "numpy",
