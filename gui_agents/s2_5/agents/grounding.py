@@ -410,6 +410,49 @@ class OSWorldACI(ACI):
             return f"import pyautogui; import time; pyautogui.hotkey('command', 'space', interval=0.5); pyautogui.typewrite({repr(app_or_filename)}); pyautogui.press('enter'); time.sleep(1.0)"
 
     @agent_action
+    def open_app(self, app_name: str):
+        """Open an application directly using AppleScript on macOS for optimal performance.
+        
+        This method uses native macOS AppleScript commands to activate applications instantly,
+        bypassing Spotlight search delays. Significantly faster than the general 'open' method
+        for launching known applications. Ideal for opening system apps, browsers, productivity
+        tools, and any installed application by exact name.
+        
+        Use this when you know the exact application name and want immediate activation.
+        For file opening or fuzzy name matching, use the 'open' method instead.
+        
+        Args:
+            app_name:str, the exact name of the application to open (e.g., 'Safari', 'Google Chrome', 'Mail', 'Finder', 'System Preferences')
+        """
+        if self.platform == "darwin":
+            return f"import subprocess; import time; subprocess.run(['osascript', '-e', f'tell application \"{app_name}\" to activate']); time.sleep(0.5)"
+        else:
+            # Fallback to regular open method for non-macOS platforms
+            return self.open(app_name)
+
+    @agent_action
+    def open_app_with_url(self, app_name: str, url: str):
+        """Open an application and navigate to a specific URL in one atomic operation.
+        
+        This method combines app launching and URL navigation using AppleScript's 'open location'
+        command, eliminating the need for separate app opening and URL navigation steps.
+        Particularly efficient for web browsers, email clients, and other URL-handling applications.
+        
+        The operation is atomic - the app opens and immediately navigates to the specified URL,
+        reducing total execution time and avoiding intermediate states. Perfect for tasks like
+        opening Gmail in Chrome, launching specific websites, or opening email compose windows.
+        
+        Args:
+            app_name:str, the name of the URL-capable application (e.g., 'Safari', 'Google Chrome', 'Firefox', 'Mail')
+            url:str, the URL to open in the application (e.g., 'https://gmail.com', 'mailto:user@example.com')
+        """
+        if self.platform == "darwin":
+            return f"import subprocess; import time; subprocess.run(['osascript', '-e', f'tell application \"{app_name}\" to open location \"{url}\"']); time.sleep(0.5)"
+        else:
+            # Fallback for non-macOS platforms
+            return f"import webbrowser; webbrowser.open({repr(url)})"
+
+    @agent_action
     def type(
         self,
         element_description: Optional[str] = None,
