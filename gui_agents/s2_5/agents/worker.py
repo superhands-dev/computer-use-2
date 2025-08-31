@@ -1,6 +1,7 @@
+import asyncio
 import logging
 import textwrap
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Callable, Optional
 
 from gui_agents.s2_5.agents.grounding import ACI
 from gui_agents.s2_5.core.module import BaseModule
@@ -26,6 +27,7 @@ class Worker(BaseModule):
         enable_reflection: bool = True,
         generator_engine_params: Dict = None,
         reflection_engine_params: Dict = None,
+        log_emitter: Optional[Callable] = None,
     ):
         """
         Worker receives the main task and generates actions, without the need of hierarchical planning
@@ -50,6 +52,7 @@ class Worker(BaseModule):
         self.grounding_agent = grounding_agent
         self.max_trajectory_length = max_trajectory_length
         self.enable_reflection = enable_reflection
+        self.log_emitter = log_emitter
         
         # Use specific engine params or fall back to default
         self.generator_engine_params = generator_engine_params or engine_params
@@ -115,7 +118,7 @@ class Worker(BaseModule):
             if len(self.reflection_agent.messages) > self.max_trajectory_length + 1:
                 self.reflection_agent.messages.pop(1)
 
-    def generate_next_action(
+    async def generate_next_action(
         self,
         instruction: str,
         obs: Dict,
@@ -123,6 +126,18 @@ class Worker(BaseModule):
         """
         Predict the next action(s) based on the current observation.
         """
+        # Emit action generation start event
+        if self.log_emitter:
+            try:
+                action_start_data = {
+                    "type": "computer_thinking",
+                    "content": "Starting action generation...",
+                    "stage": "action_generation_start"
+                }
+                await self.log_emitter(action_start_data)
+            except Exception as e:
+                logger.error(f"Error emitting action generation start: {e}")
+        
         agent = self.grounding_agent
         generator_message = (
             ""
@@ -177,12 +192,36 @@ class Worker(BaseModule):
                 self.reflections.append(reflection)
                 generator_message += f"REFLECTION: You may use this reflection on the previous action and overall trajectory:\n{reflection}\n"
                 logger.info("REFLECTION: %s", reflection)
+                
+                # Emit reflection completion event
+                if self.log_emitter:
+                    try:
+                        reflection_data = {
+                            "type": "computer_thinking",
+                            "content": f"Reflection completed: {reflection}",
+                            "stage": "reflection_completed"
+                        }
+                        await self.log_emitter(reflection_data)
+                    except Exception as e:
+                        logger.error(f"Error emitting reflection completion: {e}")
 
         # Add finalized message to conversation
         generator_message += f"\nCurrent Text Buffer = [{','.join(agent.notes)}]\n"
         self.generator_agent.add_message(
             generator_message, image_content=obs["screenshot"], role="user"
         )
+
+        # Emit plan generation start event
+        if self.log_emitter:
+            try:
+                plan_start_data = {
+                    "type": "computer_thinking",
+                    "content": "Generating action plan...",
+                    "stage": "plan_generation_start"
+                }
+                await self.log_emitter(plan_start_data)
+            except Exception as e:
+                logger.error(f"Error emitting plan generation start: {e}")
 
         full_plan = call_llm_safe(
             self.generator_agent,
@@ -194,6 +233,30 @@ class Worker(BaseModule):
         self.worker_history.append(plan)
         logger.info("FULL PLAN:\n %s", full_plan)
         self.generator_agent.add_message(plan, role="assistant")
+        
+        # Emit plan generation completion event
+        if self.log_emitter:
+            try:
+                plan_complete_data = {
+                    "type": "computer_thinking",
+                    "content": f"Plan generated: {plan[:100]}...",
+                    "stage": "plan_generation_complete"
+                }
+                await self.log_emitter(plan_complete_data)
+            except Exception as e:
+                logger.error(f"Error emitting plan generation complete: {e}")
+
+        # Emit grounding start event
+        if self.log_emitter:
+            try:
+                grounding_data = {
+                    "type": "computer_thinking",
+                    "content": "Converting plan to executable actions...",
+                    "stage": "grounding_start"
+                }
+                await self.log_emitter(grounding_data)
+            except Exception as e:
+                logger.error(f"Error emitting grounding start: {e}")
 
         # Use the grounding agent to convert agent_action("desc") into agent_action([x, y])
         try:
@@ -202,10 +265,35 @@ class Worker(BaseModule):
             plan_code = sanitize_code(plan_code)
             plan_code = extract_first_agent_function(plan_code)
             exec_code = eval(plan_code)
+            
+            # Emit action ready event
+            if self.log_emitter:
+                try:
+                    action_ready_data = {
+                        "type": "computer_thinking",
+                        "content": f"Action ready for execution: {plan_code}",
+                        "stage": "action_ready"
+                    }
+                    await self.log_emitter(action_ready_data)
+                except Exception as e:
+                    logger.error(f"Error emitting action ready: {e}")
+                    
         except Exception as e:
             logger.error("Error in parsing plan code: %s", e)
             plan_code = "agent.wait(1.0)"
             exec_code = eval(plan_code)
+            
+            # Emit error event
+            if self.log_emitter:
+                try:
+                    error_data = {
+                        "type": "computer_thinking",
+                        "content": f"Error in plan parsing, using fallback: {plan_code}",
+                        "stage": "error_fallback"
+                    }
+                    await self.log_emitter(error_data)
+                except Exception as e:
+                    logger.error(f"Error emitting error event: {e}")
 
         executor_info = {
             "full_plan": full_plan,

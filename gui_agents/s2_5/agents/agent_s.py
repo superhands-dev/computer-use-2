@@ -1,6 +1,6 @@
 import logging
 import platform
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Callable, Optional
 
 from gui_agents.s2_5.agents.grounding import ACI
 from gui_agents.s2_5.agents.worker import Worker
@@ -57,6 +57,7 @@ class AgentS2_5(UIAgent):
         enable_reflection: bool = True,
         generator_engine_params: Dict = None,
         reflection_engine_params: Dict = None,
+        log_emitter: Optional[Callable] = None,
     ):
         """Initialize a minimalist AgentS2 without hierarchy
 
@@ -75,6 +76,7 @@ class AgentS2_5(UIAgent):
         self.enable_reflection = enable_reflection
         self.generator_engine_params = generator_engine_params
         self.reflection_engine_params = reflection_engine_params
+        self.log_emitter = log_emitter
         self.reset()
 
     def reset(self) -> None:
@@ -87,11 +89,12 @@ class AgentS2_5(UIAgent):
             enable_reflection=self.enable_reflection,
             generator_engine_params=self.generator_engine_params,
             reflection_engine_params=self.reflection_engine_params,
+            log_emitter=self.log_emitter,
         )
 
-    def predict(self, instruction: str, observation: Dict) -> Tuple[Dict, List[str]]:
+    async def predict(self, instruction: str, observation: Dict) -> Tuple[Dict, List[str]]:
         # Initialize the three info dictionaries
-        executor_info, actions = self.executor.generate_next_action(
+        executor_info, actions = await self.executor.generate_next_action(
             instruction=instruction, obs=observation
         )
 
