@@ -178,23 +178,21 @@ def run_agent(agent, instruction: str, scaled_width: int, scaled_height: int):
         info, code = agent.predict(instruction=instruction, observation=obs)
 
         if "done" in code[0].lower() or "fail" in code[0].lower():
-            if platform.system() == "Darwin":
-                os.system(
-                    f'osascript -e \'display dialog "Task Completed" with title "OpenACI Agent" buttons "OK" default button "OK"\''
-                )
-            elif platform.system() == "Linux":
-                os.system(
-                    f'zenity --info --title="OpenACI Agent" --text="Task Completed" --width=200 --height=100'
-                )
 
-            break
+            status = "completed" if "done" in code[0].lower() else "failed"
+            return {
+                "status": status,
+                "message": f"Task {status} successfully",
+                "step": step + 1,
+                "code": code[0]
+            }
 
         if "next" in code[0].lower():
             continue
 
         if "wait" in code[0].lower():
             print("⏳ Agent requested wait...")
-            time.sleep(5)
+            time.sleep(2)
             continue
 
         else:
