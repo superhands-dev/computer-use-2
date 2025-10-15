@@ -4,6 +4,12 @@
 </h1>
 
 <p align="center">&nbsp;
+  🌐 <a href="https://www.simular.ai/articles/agent-s3">[S3 blog]</a>&nbsp;
+  📄 <a href="https://arxiv.org/abs/2510.02250">[S3 Paper]</a>&nbsp;
+  🎥 <a href="https://www.youtube.com/watch?v=VHr0a3UBsh4">[S3 Video]</a>
+</p>
+
+<p align="center">&nbsp;
   🌐 <a href="https://www.simular.ai/articles/agent-s2-technical-review">[S2 blog]</a>&nbsp;
   📄 <a href="https://arxiv.org/abs/2504.00906">[S2 Paper (COLM 2025)]</a>&nbsp;
   🎥 <a href="https://www.youtube.com/watch?v=wUGVQl7c0eg">[S2 Video]</a>
@@ -50,6 +56,7 @@
 </div>
 
 ## 🥳 Updates
+- [x] **2025/10/02**: Released Agent S3 and its [technical paper](https://arxiv.org/abs/2510.02250), setting a new SOTA of **69.9%** on OSWorld (approaching 72% human performance), with strong generalizability on WindowsAgentArena and AndroidWorld! It is also simpler, faster, and more flexible.
 - [x] **2025/08/01**: Agent S2.5 is released (gui-agents v0.2.5): simpler, better, and faster! New SOTA on [OSWorld-Verified](https://os-world.github.io)!
 - [x] **2025/07/07**: The [Agent S2 paper](https://arxiv.org/abs/2504.00906) is accepted to COLM 2025! See you in Montreal!
 - [x] **2025/04/27**: The Agent S paper won the Best Paper Award 🏆 at ICLR 2025 Agentic AI for Science Workshop!
@@ -77,36 +84,13 @@ Whether you're interested in AI, automation, or contributing to cutting-edge age
 
 ## 🎯 Current Results
 
-<div align="center">
-  <table border="0" cellspacing="0" cellpadding="5">
-    <tr>
-      <th>Benchmark</th>
-      <th>Agent S2.5</th>
-      <th>Previous SOTA</th>
-    </tr>
-    <tr>
-      <td>OSWorld Verified (100 step)</td>
-      <td><b>56.0%</b></td>
-      <td>53.1%</td>
-    </tr>
-    <tr>
-      <td>OSWorld Verified (50 step)</td>
-      <td><b>54.2%</b></td>
-      <td>50.6%</td>
-    </tr>
-<!--     <tr>
-      <td>WindowsAgentArena</td>
-      <td>29.8%</td>
-      <td>19.5% (NAVI)</td>
-    </tr>
-    <tr>
-      <td>AndroidWorld</td>
-      <td>54.3%</td>
-      <td>46.8% (UI-TARS)</td>
-    </tr> -->
-  </table>
-</div>
+<p align="center">
+  <img src="images/s3_results.png" alt="Agent S3 Results" width="700"/>
+</p>
 
+On OSWorld, Agent S3 alone reaches 62.6% in the 100-step setting, already exceeding the previous state of the art of 61.4% (Claude Sonnet 4.5). With the addition of Behavior Best-of-N, performance climbs even higher to 69.9%, bringing computer-use agents to within just a few points of human-level accuracy (72%).
+
+Agent S3 also demonstrates strong zero-shot generalization. On WindowsAgentArena, accuracy rises from 50.2% using only Agent S3 to 56.6% by selecting from 3 rollouts. Similarly on AndroidWorld, performance improves from 68.1% to 71.6%
 
 ## 🛠️ Installation & Setup
 
@@ -117,14 +101,16 @@ Whether you're interested in AI, automation, or contributing to cutting-edge age
 
 
 ### Installation
-To install Agent S2.5 without cloning the repository, run
+To install Agent S3 without cloning the repository, run
 ```bash
 pip install gui-agents
 ```
-If you would like to test Agent S2.5 while making changes, clone the repository and install using
+If you would like to test Agent S3 while making changes, clone the repository and install using
 ```
 pip install -e .
 ```
+
+Don't forget to also `brew install tesseract`! Pytesseract requires this extra installation to work.
 
 ### API Configuration
 
@@ -157,7 +143,9 @@ For optimal performance, we recommend [UI-TARS-1.5-7B](https://huggingface.co/By
 
 ### CLI
 
-Run Agent S2.5 with the required parameters:
+Note, this is running Agent S3, our improved agent, without bBoN. 
+
+Run Agent S3 with the required parameters:
 
 ```bash
 agent_s \
@@ -169,6 +157,23 @@ agent_s \
     --grounding_width 1920 \
     --grounding_height 1080
 ```
+
+#### Local Coding Environment (Optional)
+For tasks that require code execution (e.g., data processing, file manipulation, system automation), you can enable the local coding environment:
+
+```bash
+agent_s \
+    --provider openai \
+    --model gpt-5-2025-08-07 \
+    --ground_provider huggingface \
+    --ground_url http://localhost:8080 \
+    --ground_model ui-tars-1.5-7b \
+    --grounding_width 1920 \
+    --grounding_height 1080 \
+    --enable_local_env
+```
+
+⚠️ **WARNING**: The local coding environment executes arbitrary Python and Bash code locally on your machine. Only use this feature in trusted environments and with trusted inputs.
 
 #### Required Parameters
 - **`--provider`**: Main generation model provider (e.g., openai, anthropic, etc.) - Default: "openai"
@@ -193,15 +198,40 @@ The grounding width and height should match the output coordinate resolution of 
 - **`--ground_api_key`**: API key for grounding model endpoint - Default: ""
 - **`--max_trajectory_length`**: Maximum number of image turns to keep in trajectory - Default: 8
 - **`--enable_reflection`**: Enable reflection agent to assist the worker agent - Default: True
+- **`--enable_local_env`**: Enable local coding environment for code execution (WARNING: Executes arbitrary code locally) - Default: False
+
+#### Local Coding Environment Details
+The local coding environment enables Agent S3 to execute Python and Bash code directly on your machine. This is particularly useful for:
+
+- **Data Processing**: Manipulating spreadsheets, CSV files, or databases
+- **File Operations**: Bulk file processing, content extraction, or file organization
+- **System Automation**: Configuration changes, system setup, or automation scripts
+- **Code Development**: Writing, editing, or executing code files
+- **Text Processing**: Document manipulation, content editing, or formatting
+
+When enabled, the agent can use the `call_code_agent` action to execute code blocks for tasks that can be completed through programming rather than GUI interaction.
+
+**Requirements:**
+- **Python**: The same Python interpreter used to run Agent S3 (automatically detected)
+- **Bash**: Available at `/bin/bash` (standard on macOS and Linux)
+- **System Permissions**: The agent runs with the same permissions as the user executing it
+
+**Security Considerations:**
+- The local environment executes arbitrary code with the same permissions as the user running the agent
+- Only enable this feature in trusted environments
+- Be cautious when the agent generates code for system-level operations
+- Consider running in a sandboxed environment for untrusted tasks
+- Bash scripts are executed with a 30-second timeout to prevent hanging processes
 
 ### `gui_agents` SDK
 
-First, we import the necessary modules. `AgentS2_5` is the main agent class for Agent S2.5. `OSWorldACI` is our grounding agent that translates agent actions into executable python code.
+First, we import the necessary modules. `AgentS3` is the main agent class for Agent S3. `OSWorldACI` is our grounding agent that translates agent actions into executable python code.
 ```python
 import pyautogui
 import io
-from gui_agents.s2_5.agents.agent_s import AgentS2_5
-from gui_agents.s2_5.agents.grounding import OSWorldACI
+from gui_agents.s3.agents.agent_s import AgentS3
+from gui_agents.s3.agents.grounding import OSWorldACI
+from gui_agents.s3.utils.local_env import LocalEnv  # Optional: for local coding environment
 
 # Load in your API keys.
 from dotenv import load_dotenv
@@ -243,10 +273,15 @@ engine_params_for_grounding = {
 }
 ```
 
-Then, we define our grounding agent and Agent S2.5.
+Then, we define our grounding agent and Agent S3.
 
 ```python
+# Optional: Enable local coding environment
+enable_local_env = False  # Set to True to enable local code execution
+local_env = LocalEnv() if enable_local_env else None
+
 grounding_agent = OSWorldACI(
+    env=local_env,  # Pass local_env for code execution capability
     platform=current_platform,
     engine_params_for_generation=engine_params,
     engine_params_for_grounding=engine_params_for_grounding,
@@ -254,7 +289,7 @@ grounding_agent = OSWorldACI(
     height=1080  # Optional: screen height
 )
 
-agent = AgentS2_5(
+agent = AgentS3(
     engine_params,
     grounding_agent,
     platform=current_platform,
@@ -282,17 +317,27 @@ info, action = agent.predict(instruction=instruction, observation=obs)
 exec(action[0])
 ```
 
-Refer to `gui_agents/s2_5/cli_app.py` for more details on how the inference loop works.
+Refer to `gui_agents/s3/cli_app.py` for more details on how the inference loop works.
 
 ### OSWorld
 
-To deploy Agent S2.5 in OSWorld, follow the [OSWorld Deployment instructions](osworld_setup/s2_5/OSWorld.md).
+To deploy Agent S3 in OSWorld, follow the [OSWorld Deployment instructions](osworld_setup/s3/OSWorld.md).
 
 ## 💬 Citations
 
 If you find this codebase useful, please cite:
 
 ```
+@misc{Agent-S3,
+      title={The Unreasonable Effectiveness of Scaling Agents for Computer Use}, 
+      author={Gonzalo Gonzalez-Pumariega and Vincent Tu and Chih-Lun Lee and Jiachen Yang and Ang Li and Xin Eric Wang},
+      year={2025},
+      eprint={2510.02250},
+      archivePrefix={arXiv},
+      primaryClass={cs.AI},
+      url={https://arxiv.org/abs/2510.02250}, 
+}
+
 @misc{Agent-S2,
       title={Agent S2: A Compositional Generalist-Specialist Framework for Computer Use Agents}, 
       author={Saaket Agashe and Kyle Wong and Vincent Tu and Jiachen Yang and Ang Li and Xin Eric Wang},
